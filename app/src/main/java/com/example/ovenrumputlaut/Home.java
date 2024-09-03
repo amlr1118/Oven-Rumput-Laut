@@ -183,7 +183,7 @@ public class Home extends AppCompatActivity {
                         Integer code = http.getStatusCode();
                         if (code == 200){
                             if (relayStatus=="1"){
-                                tVStatus.setText("Oven Menyala 1");
+                                tVStatus.setText("Oven Menyala");
                             }else{
                                 tVStatus.setText("Oven Mati");
                             }
