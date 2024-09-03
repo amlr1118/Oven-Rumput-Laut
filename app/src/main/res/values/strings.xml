@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Oven Rumput Laut</string>
+    <string name="api_server">https://e-lapor-waara.xyz/api</string>
+</resources>
