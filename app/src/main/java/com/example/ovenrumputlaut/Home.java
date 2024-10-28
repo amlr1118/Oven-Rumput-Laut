@@ -2,8 +2,12 @@ package com.example.ovenrumputlaut;
 
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
+import android.preference.PreferenceManager;
+import android.view.View;
+import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -19,18 +23,31 @@ import androidx.core.view.WindowInsetsCompat;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.Timer;
+import java.util.TimerTask;
+
 public class Home extends AppCompatActivity {
 
     private ToggleButton tglRelay;
     private TextView tVSuhu;
     private TextView tVKelembapan;
     private TextView tVStatus;
+    private TextView timerText;
+    private Button btnReset;
     private String relayStatus;
     private String id;
 
     private Handler handler = new Handler();
     private Runnable runnable;
     private final int DELAY = 5000; // 5 detik
+
+    private Timer timer;
+    private TimerTask timerTask;
+    private double time = 0.0;
+    private boolean timerStarted = false;
+
+    private SharedPreferences sharedPreferences;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -42,25 +59,91 @@ public class Home extends AppCompatActivity {
             return insets;
         });
 
+        sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+        time = Double.longBitsToDouble(sharedPreferences.getLong("timer_time", 0L));
+        timerStarted = sharedPreferences.getBoolean("timer_started", false);
+
         init();
         id ="1";
         cekStatusRelay();
         tVStatus.setText("");
+
+        timer = new Timer();
+
+        if (timerStarted) {
+            startTimer();
+        }
 
         tglRelay.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
                 if (tglRelay.isChecked()){
                     relayStatus = "1";
+                    if (!timerStarted) {
+                        startTimer();
+                    }
                     setRelay();
                     bacaSensorDHT();
+                    btnReset.setVisibility(View.INVISIBLE);
                 }else{
                     relayStatus = "0";
+                    stopTimer();
                     setRelay();
-
+                    btnReset.setVisibility(View.VISIBLE);
                 }
             }
         });
+
+        btnReset.setOnClickListener(view -> {
+            resetTimer();
+        });
+    }
+
+    private void startTimer() {
+        timerStarted = true;
+        timerTask = new TimerTask() {
+            @Override
+            public void run() {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        time++;
+                        timerText.setText(getTimerText());  // Update TextView dengan nilai timer
+                    }
+                });
+            }
+        };
+        timer.scheduleAtFixedRate(timerTask, 0, 1000);
+    }
+
+    private void stopTimer() {
+        if (timerTask != null) {
+            timerTask.cancel();
+            timerStarted = false;
+        }
+    }
+
+    private void resetTimer() {
+        if (timerTask != null) {
+            timerTask.cancel();
+        }
+        time = 0.0;
+        timerStarted = false;
+        timerText.setText(getTimerText());  // Reset TextView ke 00:00:00
+    }
+
+    private String getTimerText() {
+        int rounded = (int) Math.round(time);
+
+        int seconds = ((rounded % 86400) % 3600) % 60;
+        int minutes = ((rounded % 86400) % 3600) / 60;
+        int hours = ((rounded % 86400) / 3600);
+
+        return formatTime(seconds, minutes, hours);
+    }
+
+    private String formatTime(int seconds, int minutes, int hours) {
+        return String.format("%02d", hours) + " : " + String.format("%02d", minutes) + " : " + String.format("%02d", seconds);
     }
 
     private void bacaSensorDHT(){
@@ -111,6 +194,10 @@ public class Home extends AppCompatActivity {
     @Override
     protected void onStop() {
         super.onStop();
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putLong("timer_time", Double.doubleToRawLongBits(time));
+        editor.putBoolean("timer_started", timerStarted);
+        editor.apply();
         if (handler != null && runnable != null) {
             handler.removeCallbacks(runnable);
         }
@@ -153,8 +240,6 @@ public class Home extends AppCompatActivity {
                 });
             }
         }).start();
-
-
     }
 
 
@@ -245,5 +330,9 @@ public class Home extends AppCompatActivity {
         tVSuhu = findViewById(R.id.tVSuhu);
         tVKelembapan = findViewById(R.id.tVKelembapan);
         tVStatus = findViewById(R.id.tVStatus);
+        timerText = findViewById(R.id.timerText);
+        btnReset = findViewById(R.id.btnReset);
+
+        btnReset.setVisibility(View.INVISIBLE);
     }
 }
